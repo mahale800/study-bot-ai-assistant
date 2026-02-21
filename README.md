@@ -1,7 +1,14 @@
-# CYPHER
-**Cinematic AI Assistant with Voice, Memory, and Interactive UI**
+# Study Bot (AI Study Assistant Chatbot)
+**Alternative/Internal Title: Song Recommendation System**
 
-CYPHER is a production-ready, JARVIS-inspired AI assistant featuring a fully cinematic 3D web interface, local memory persistence, voice recognition and synthesis, and deep neural analysis.
+**CYPHER** is the intelligent UI layer and specialized assistant persona for this academic project. It features a fully cinematic 3D web interface, local memory persistence, voice recognition and synthesis, and deep neural analysis.
+
+## 📘 Academic Project Mapping
+This repository serves as the submission for the academic project requirements. Here is how current features satisfy the core criteria:
+- **Chatbot:** Context-aware study-related AI queries handled via LangGraph/FastAPI routing for high-speed LLM inference.
+- **Memory:** Persistent threaded memory using MongoDB (or local JSON-based equivalent) allowing for continuous study context.
+- **API:** RESTful python backend using FastAPI for clean frontend-backend isolation.
+- **Deployment Readiness:** Fully self-contained application with proper environment segregation (.env excluded) and optimized asset handling.
 
 ## 🚀 Features
 
@@ -23,7 +30,7 @@ CYPHER is a production-ready, JARVIS-inspired AI assistant featuring a fully cin
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/yourusername/cypher.git
+git clone https://github.com/mahale800/study-bot-ai-assistant.git
 cd cypher
 ```
 
