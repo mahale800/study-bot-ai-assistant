@@ -1,0 +1,21 @@
+# ─── CYPHER AI — Unified Requirements ───────────────────────────────
+# Python 3.12.x  (use .venv_voice — call: .venv_voice\Scripts\python.exe)
+# Install: .venv_voice\Scripts\python.exe -m pip install -r requirements.txt
+
+# Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Database (MongoDB async driver)
+motor>=3.5.0
+pymongo>=4.7.0
+
+# AI / LLM
+langchain-groq>=0.2.0
+langchain-core>=0.3.0
+
+
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.7.0

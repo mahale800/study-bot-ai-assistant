@@ -1,0 +1,2653 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHER — AI Study Assistant</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💠</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --c: #00f3ff;
+            --bg: rgba(4, 9, 18, .9);
+            --glass: 1px solid rgba(0, 243, 255, .13);
+            --fd: 'Orbitron', 'Segoe UI', sans-serif;
+            --fb: 'Rajdhani', sans-serif;
+            --sw: 260px;
+            /* sidebar width */
+            --pw: 250px;
+            /* panel width */
+            --ih: 82px;
+            /* input bar height */
+            --gap-sm: 8px;
+            --gap-md: 16px;
+            --gap-lg: 24px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+            cursor: none !important;
+        }
+
+        input,
+        textarea {
+            cursor: none !important;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: 'Orbitron', 'Segoe UI', sans-serif;
+            letter-spacing: 0.5px;
+            height: 100vh;
+            color: #f1f5f9;
+            user-select: none;
+            display: flex;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        /* Subtle scanlines overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0, 243, 255, 0.03) 3px);
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.8;
+        }
+
+        /* ── BACKGROUND LAYERS ─────────── */
+        /* L1: Slow-drift grid */
+        #bg-grid {
+            position: fixed;
+            inset: -10%;
+            width: 120%;
+            height: 120%;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(0, 243, 255, .025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, .025) 1px, transparent 1px);
+            background-size: 72px 72px;
+            animation: gridDrift 22s linear infinite;
+        }
+
+        @keyframes gridDrift {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: 72px 72px;
+            }
+        }
+
+        /* L2: Particle canvas */
+        #bg-particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* L3: Radial glow behind reactor */
+        #bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            z-index: 0;
+            pointer-events: none;
+            background: radial-gradient(circle at center, rgba(0, 243, 255, .13), transparent 62%);
+            transition: background .6s;
+        }
+
+        /* L4: Cursor light */
+        #cursor-light {
+            position: fixed;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 2;
+            background: radial-gradient(circle, rgba(0, 243, 255, .06), transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: opacity .3s;
+        }
+
+        /* ── SYSTEM HUD ────────────────── */
+        #sys-hud {
+            position: fixed;
+            top: 10px;
+            left: calc(var(--sw) + 16px);
+            z-index: 25;
+            font-family: 'Consolas', monospace;
+            font-size: .72rem;
+            letter-spacing: 2px;
+            color: var(--c);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: .8;
+        }
+
+        #sys-hud-badge {
+            padding: 2px 8px;
+            border: 1px solid var(--c);
+            border-radius: 10px;
+            font-size: .66rem;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            animation: blink .9s ease infinite;
+        }
+
+        #sys-hud-detail {
+            opacity: .55;
+            font-size: .66rem;
+        }
+
+        /* ── PRELOADER ─────────────────── */
+        #preloader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            transition: opacity .8s, visibility .8s;
+        }
+
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .pre-sup {
+            font-size: .72rem;
+            letter-spacing: 6px;
+            color: rgba(0, 243, 255, .5);
+            animation: blink 2s infinite;
+        }
+
+        .pre-title {
+            font-size: 3.6rem;
+            font-weight: 900;
+            letter-spacing: 14px;
+            color: var(--c);
+            animation: glow 3s ease infinite;
+        }
+
+        #boot-log {
+            font-family: 'Consolas', monospace;
+            font-size: .78rem;
+            color: rgba(0, 243, 255, .55);
+            height: 34px;
+            text-align: center;
+        }
+
+        /* ── VIGNETTE + CHROMA ──────────── */
+        #vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center,
+                    transparent 38%, rgba(0, 0, 0, .45) 72%, rgba(0, 0, 0, .85) 100%);
+        }
+
+        @keyframes chromaShift {
+
+            0%,
+            100% {
+                filter: none;
+            }
+
+            50% {
+                filter: hue-rotate(8deg) saturate(1.3);
+            }
+        }
+
+        body.temp-mode {
+            background: radial-gradient(circle, #140014, #000);
+        }
+
+        body.temp-mode #reactor-bg {
+            animation: chromaShift 0.2s ease infinite;
+        }
+
+        body.temp-mode #vignette {
+            background: radial-gradient(ellipse at center,
+                    transparent 30%, rgba(80, 0, 100, .3) 65%, rgba(0, 0, 0, .85) 100%);
+        }
+
+        body.temp-mode .holo-panel {
+            border-color: #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.2);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: .3
+            }
+
+            50% {
+                opacity: 1
+            }
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                text-shadow: 0 0 40px rgba(0, 243, 255, .35)
+            }
+
+            50% {
+                text-shadow: 0 0 80px rgba(0, 243, 255, .8)
+            }
+        }
+
+        #initBtn {
+            font-family: var(--fd);
+            font-size: .86rem;
+            font-weight: 700;
+            letter-spacing: 5px;
+            padding: 16px 46px;
+            background: transparent;
+            border: 2px solid rgba(0, 243, 255, .5);
+            color: var(--c);
+            border-radius: 4px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all .35s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #initBtn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 243, 255, .1);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform .35s;
+            z-index: -1;
+        }
+
+        #initBtn:hover::before {
+            transform: scaleX(1);
+        }
+
+        #initBtn:hover {
+            box-shadow: 0 0 26px rgba(0, 243, 255, .45);
+            color: #fff;
+        }
+
+        /* ── THREE.JS CANVAS ───────────── */
+        #reactor-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ── LAYOUT ────────────────────── */
+        #app-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr 340px;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+
+        #sidebar {
+            padding: 20px;
+            height: 100%;
+            background: rgba(0, 10, 20, 0.6);
+            border-right: 1px solid rgba(0, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            z-index: 20;
+            box-shadow: 4px 0 22px rgba(0, 243, 255, .04);
+        }
+
+        #main-interface {
+            display: contents;
+            /* Allows grid items to flow directly from app-layout */
+        }
+
+        #chat-section {
+            position: relative;
+            padding: 20px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #right-panel {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border-left: 1px solid rgba(0, 255, 255, 0.08);
+            background: rgba(0, 10, 20, 0.5);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            z-index: 15;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 243, 255, .12) transparent;
+        }
+
+        #right-panel::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        #right-panel::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, .18);
+            border-radius: 2px;
+        }
+
+        /* ── SIDEBAR ───────────────────── */
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: var(--glass);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--c);
+            letter-spacing: 2px;
+            text-align: center;
+            text-shadow: 0 0 10px var(--c);
+        }
+
+        .new-chat-btn {
+            margin: 14px;
+            padding: 10px;
+            background: rgba(0, 243, 255, .04);
+            border: 1px solid var(--c);
+            color: var(--c);
+            font-family: var(--fd);
+            font-size: .78rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all .3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .new-chat-btn:hover {
+            background: rgba(0, 243, 255, .1);
+            box-shadow: 0 0 16px rgba(0, 243, 255, .2);
+        }
+
+        #history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px 10px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 243, 255, .2) transparent;
+        }
+
+        #history-list::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        #history-list::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, .25);
+            border-radius: 2px;
+        }
+
+        .history-item {
+            padding: 10px 11px;
+            margin-bottom: 3px;
+            border-radius: 6px;
+            transition: all .2s;
+            color: #94a3b8;
+            font-size: .78rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+            font-family: var(--fb);
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, .04);
+            color: #fff;
+        }
+
+        .history-item.active {
+            background: rgba(0, 243, 255, .07);
+            border-color: rgba(0, 243, 255, .25);
+            color: var(--c);
+        }
+
+        .h-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 118px;
+        }
+
+        .h-acts {
+            display: none;
+            gap: 9px;
+            font-size: .8rem;
+        }
+
+        .history-item:hover .h-acts {
+            display: flex;
+        }
+
+        .h-icon:hover {
+            transform: scale(1.2);
+        }
+
+        .h-icon.trash:hover {
+            color: #ef4444;
+        }
+
+        .h-icon.edit:hover {
+            color: #fbbf24;
+        }
+
+        /* ── STATUS HUD (Phase 11 Sticky Header Fix) ────────────────── */
+        #header-status {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: rgba(0, 10, 20, 0.85);
+            padding: 8px 16px;
+            border-radius: 30px;
+            border: var(--glass);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            width: fit-content;
+            margin: 16px auto 0 auto;
+        }
+
+        #status-text {
+            color: var(--c);
+            font-size: .76rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+            transition: color .5s;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--c);
+            box-shadow: 0 0 7px var(--c);
+        }
+
+        /* ── NEURAL PANELS (Phase 9 Iron Man UI) ── */
+        .holo-panel {
+            width: 100%;
+            max-width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(0, 20, 30, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.12);
+            backdrop-filter: blur(12px);
+            color: #94a3b8;
+            font-family: 'Consolas', monospace;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.08), inset 0 0 6px rgba(0, 255, 255, 0.05);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .holo-panel p,
+        .holo-panel span {
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+
+        .holo-panel::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 243, 255, 0.5);
+            animation: scan 3s linear infinite;
+        }
+
+        #right-panel .holo-panel::after,
+        #right-panel .cypher-card::after {
+            content: none !important;
+            display: none !important;
+            animation: none !important;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        .panel-card,
+        .panel {
+            position: relative;
+            width: 100%;
+        }
+
+        .holo-panel {
+            animation: cyberPulse 4s infinite ease-in-out;
+            transition: all 0.4s ease;
+        }
+
+        .holo-panel.thinking {
+            animation: pulseSoft 1.5s infinite;
+        }
+
+        .holo-panel.speaking {
+            animation: glowPulse 0.8s infinite;
+        }
+
+        .holo-panel.listening {
+            animation: borderFlash 1s infinite;
+        }
+
+        @keyframes pulseSoft {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes glowPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px currentColor;
+            }
+
+            50% {
+                box-shadow: 0 0 25px currentColor;
+            }
+        }
+
+        @keyframes borderFlash {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        .holo-panel:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.15), 0 0 20px rgba(0, 255, 255, 0.08);
+        }
+
+        @keyframes cyberPulse {
+            0% {
+                box-shadow: 0 0 5px rgba(0, 255, 255, 0.1);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(0, 255, 255, 0.25);
+            }
+
+            100% {
+                box-shadow: 0 0 5px rgba(0, 255, 255, 0.1);
+            }
+        }
+
+        .holo-panel.active {
+            display: block;
+        }
+
+        #panel-analysis {
+            border-left: 3px solid var(--c);
+        }
+
+        @media (max-width: 1100px) {
+            #right-panel {
+                display: none !important;
+            }
+
+            #chat-section {
+                flex: 1;
+            }
+        }
+
+        .panel-title {
+            font-size: 14px;
+            letter-spacing: 2.5px;
+            color: var(--c);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0, 243, 255, .15);
+            padding-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .panel-title i {
+            font-size: .7rem;
+        }
+
+        .panel-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: .7rem;
+        }
+
+        .panel-val {
+            color: var(--c);
+            font-weight: 700;
+            font-size: .7rem;
+            transition: color .5s;
+        }
+
+        .p-blink {
+            animation: blink .8s infinite;
+        }
+
+        /* System Vitals bars */
+        .vital-item {
+            margin-bottom: 9px;
+        }
+
+        .vital-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: .62rem;
+            letter-spacing: 1px;
+        }
+
+        .vital-pct {
+            color: var(--c);
+            transition: color .5s;
+        }
+
+        .vital-track {
+            height: 3px;
+            background: rgba(255, 255, 255, .08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .vital-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--c);
+            transition: width .25s ease, background .5s;
+        }
+
+        /* Emotion indicator badge */
+        #emotion-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: .6rem;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 6px;
+            border: 1px solid currentColor;
+        }
+
+        .em-normal {
+            color: #00f3ff;
+        }
+
+        .em-alert {
+            color: #ef4444;
+        }
+
+        .em-positive {
+            color: #4ade80;
+        }
+
+        .em-curious {
+            color: #facc15;
+        }
+
+        .em-calm {
+            color: #3b82f6;
+        }
+
+        /* ── CHAT ──────────────────────── */
+        #chat-container {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            overflow-y: auto;
+            padding-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 243, 255, .12) transparent;
+            user-select: text;
+        }
+
+        #chat-container::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, .18);
+            border-radius: 2px;
+        }
+
+        .message {
+            position: relative;
+            z-index: 1;
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 14px;
+            margin-bottom: 14px;
+            font-size: .93rem;
+            line-height: 1.5;
+            letter-spacing: 0.5px;
+            animation: messageIn 0.4s ease;
+            backdrop-filter: blur(10px);
+            border: var(--glass);
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.08), inset 0 0 6px rgba(0, 255, 255, 0.05);
+            font-family: 'Orbitron', sans-serif;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .message:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.15), 0 0 20px rgba(0, 255, 255, 0.08);
+        }
+
+        .message.assistant {
+            margin-right: auto;
+            background: rgba(0, 20, 40, 0.6);
+            border-left: 3px solid var(--c);
+        }
+
+        .message.center-greet {
+            margin: 0 auto !important;
+            text-align: center;
+        }
+
+        .message.user {
+            margin-left: auto;
+            background: rgba(0, 255, 255, 0.08);
+            border-right: 3px solid #475569;
+        }
+
+        @keyframes messageIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .typing-cursor {
+            border-right: 2px solid cyan;
+            animation: blinkTyping 1s infinite;
+        }
+
+        @keyframes blinkTyping {
+            50% {
+                border-color: transparent;
+            }
+        }
+
+
+
+        .msg-lbl {
+            font-family: var(--fd);
+            font-size: .68rem;
+            letter-spacing: 2px;
+            color: var(--c);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 7px;
+        }
+
+        .message.user .msg-lbl {
+            color: #475569;
+        }
+
+        .message code {
+            background: rgba(0, 0, 0, .6);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            color: #f97316;
+            font-size: .85em;
+        }
+
+        .message pre {
+            background: rgba(0, 0, 0, .6);
+            padding: 11px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid rgba(255, 255, 255, .06);
+        }
+
+        .message pre code {
+            color: #a3e635;
+            padding: 0;
+        }
+
+        /* ── INPUT BAR ─────────────────── */
+        .input-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 10px 14px;
+            background: rgba(5, 15, 25, 0.85);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
+            z-index: 20;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .input-bar * {
+            box-sizing: border-box;
+        }
+
+        #user-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 12px 14px;
+            background: transparent;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 10px;
+            color: #e6faff;
+            font-size: 1rem;
+            font-family: 'Rajdhani', sans-serif;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.05);
+            height: 46px;
+        }
+
+        #user-input::placeholder {
+            color: rgba(0, 243, 255, 0.4);
+            letter-spacing: 1px;
+        }
+
+        #user-input:focus {
+            border-color: #00f3ff;
+            box-shadow:
+                0 0 10px rgba(0, 243, 255, 0.3),
+                0 0 25px rgba(0, 243, 255, 0.15),
+                inset 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        @keyframes typingGlow {
+            0% {
+                box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+            }
+
+            100% {
+                box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+            }
+        }
+
+        .typing-active {
+            animation: typingGlow 1.2s infinite;
+        }
+
+        #voice-waveform {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 65px;
+            height: 40px;
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .wave-bar {
+            width: 3px;
+            height: 10px;
+            background: #00f3ff;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .wave-active {
+            opacity: 1 !important;
+        }
+
+        .ctrl-btn {
+            flex-shrink: 0;
+            /* 🔥 prevents input compression */
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 243, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #00f3ff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ctrl-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+            background: rgba(0, 243, 255, .09);
+        }
+
+        .ctrl-btn:active {
+            transform: scale(0.9);
+        }
+
+        .mic-active {
+            animation: micPulse 1.2s infinite ease-in-out;
+            background: rgba(0, 243, 255, 0.15);
+            border-color: #00f3ff;
+            color: #00f3ff !important;
+        }
+
+        .mic-ring {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px solid #00f3ff;
+            border-radius: 50%;
+            animation: micRing 1.5s infinite;
+            pointer-events: none;
+            display: none;
+        }
+
+        @keyframes micPulse {
+            0% {
+                box-shadow: 0 0 0px rgba(0, 243, 255, 0.4);
+                transform: scale(1);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(0, 243, 255, 0.8);
+                transform: scale(1.08);
+            }
+
+            100% {
+                box-shadow: 0 0 0px rgba(0, 243, 255, 0.4);
+                transform: scale(1);
+            }
+        }
+
+        @keyframes micRing {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+
+        #btn-temp {
+            color: #475569;
+            border-color: rgba(255, 255, 255, .08);
+        }
+
+        #btn-temp.temp-active {
+            color: #a855f7 !important;
+            border-color: #a855f7 !important;
+            box-shadow: 0 0 14px #a855f7 !important;
+        }
+
+        /* ── STEALTH / TEMP MODE ────────── */
+        @keyframes glitch {
+
+            0%,
+            100% {
+                transform: translate(0) skewX(0deg);
+            }
+
+            18% {
+                transform: translate(-2px, 1px) skewX(-1deg);
+            }
+
+            20% {
+                transform: translate(2px, -1px) skewX(1deg);
+            }
+
+            40% {
+                transform: translate(0, 0);
+            }
+
+            80% {
+                transform: translate(1px, -1px) skewX(.5deg);
+            }
+        }
+
+        @keyframes flicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            93% {
+                opacity: .88;
+            }
+
+            94% {
+                opacity: 1;
+            }
+
+            97% {
+                opacity: .92;
+            }
+        }
+
+        body.temp-mode {
+            filter: contrast(1.08) brightness(1.06) saturate(1.12);
+            animation: flicker 5s ease infinite;
+        }
+
+        body.temp-mode .holo-panel {
+            animation: glitch 3.5s ease infinite, holoFloat 7s ease-in-out infinite;
+            border-color: rgba(168, 85, 247, .3);
+        }
+
+        body.temp-mode #panel-analysis {
+            border-left-color: #a855f7;
+        }
+
+        body.temp-mode .panel-val,
+        body.temp-mode .panel-title {
+            color: #a855f7;
+        }
+
+        body.temp-mode #sys-hud-badge {
+            border-color: #a855f7;
+            color: #a855f7;
+        }
+
+        body.temp-mode #user-input:focus {
+            box-shadow: 0 0 18px rgba(168, 85, 247, .35);
+        }
+
+        #stealth-label {
+            position: fixed;
+            top: 34px;
+            left: calc(var(--sw) + 16px);
+            font-family: 'Consolas', monospace;
+            font-size: .64rem;
+            letter-spacing: 3px;
+            color: #a855f7;
+            pointer-events: none;
+            z-index: 25;
+            opacity: 0;
+            transition: opacity .4s;
+            text-transform: uppercase;
+        }
+
+        #stealth-label.on {
+            opacity: 1;
+            animation: glitch 2s ease infinite;
+        }
+
+        .voice-btns {
+            display: none;
+            gap: 6px;
+        }
+
+        .mini-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: var(--glass);
+            background: rgba(0, 0, 0, .45);
+            color: #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .76rem;
+            transition: all .2s;
+            cursor: pointer;
+        }
+
+        .mini-btn:hover {
+            border-color: var(--c);
+            color: var(--c);
+        }
+
+        /* UI Overlap Fixes */
+        #bg-canvas {
+            z-index: 0;
+        }
+
+        #chat-container {
+            z-index: 5;
+            position: relative;
+        }
+
+        .holo-panel {
+            z-index: 15;
+            position: relative;
+        }
+
+        #sidebar {
+            z-index: 20;
+            position: relative;
+        }
+
+        /* ── GOD MODE VOICE CSS ──────────────────────────────────────── */
+
+        /* Mic button glow + pulse when active */
+        .mic-active {
+            box-shadow:
+                0 0 10px #00f3ff,
+                0 0 30px #00f3ff,
+                0 0 60px rgba(0, 243, 255, 0.4) !important;
+            animation: micPulse 1.2s infinite ease-in-out !important;
+        }
+
+        @keyframes micPulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Voice-wave canvas inside input bar */
+        #voice-wave {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 28px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 0 0 10px 10px;
+        }
+
+        #voice-wave.wave-visible {
+            opacity: 0.75;
+        }
+
+        /* input-bar: position:relative already set in primary rule above */
+
+        /* Wave-bar divs (mic analyser bars in #voice-waveform) */
+        .wave-bar {
+            display: inline-block;
+            width: 3px;
+            height: 4px;
+            background: #00f3ff;
+            border-radius: 2px;
+            margin: 0 1px;
+            transition: height 0.05s ease;
+            box-shadow: 0 0 4px #00f3ff;
+            vertical-align: bottom;
+        }
+
+        /* #voice-waveform container — hidden by default, flex on mic start */
+        #voice-waveform {
+            display: none;
+            align-items: flex-end;
+            height: 32px;
+            padding: 0 6px;
+            gap: 2px;
+            opacity: 0.9;
+        }
+
+
+
+        /* Mic ring pulse */
+        .mic-ring {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            border: 2px solid #00f3ff;
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            animation: micRingExpand 1.2s infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes micRingExpand {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        /* ── SPACE BACKGROUND ─────────────────────────────────────────── */
+        #space-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: radial-gradient(ellipse at bottom, #050816 0%, #000 100%);
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+
+        /* ── CINEMATIC SPACE UPGRADES ─────────────────────────────── */
+        /* performance */
+        #space-bg * {
+            will-change: transform;
+        }
+
+        /* nebula glow */
+        .nebula {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(0, 243, 255, 0.13), transparent 40%),
+                radial-gradient(circle at 70% 60%, rgba(0, 100, 255, 0.10), transparent 50%),
+                radial-gradient(circle at 55% 20%, rgba(120, 0, 255, 0.07), transparent 35%);
+            filter: blur(60px);
+            opacity: 0.85;
+            animation: nebulaMove 22s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes nebulaMove {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(-50px, 30px) scale(1.1);
+            }
+        }
+
+        /* shooting stars */
+        .shooting-stars {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .shooting-stars::before,
+        .shooting-stars::after {
+            content: "";
+            position: absolute;
+            width: 2px;
+            height: 90px;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), transparent);
+            opacity: 0;
+            animation: shoot 6s linear infinite;
+        }
+
+        .shooting-stars::before {
+            top: 15%;
+            left: 8%;
+            animation-delay: 0.5s;
+        }
+
+        .shooting-stars::after {
+            top: 55%;
+            left: 75%;
+            animation-delay: 3s;
+        }
+
+        @keyframes shoot {
+            0% {
+                transform: translate(0, 0) rotate(45deg);
+                opacity: 1;
+            }
+
+            80% {
+                transform: translate(280px, 280px) rotate(45deg);
+                opacity: 0.2;
+            }
+
+            100% {
+                transform: translate(300px, 300px) rotate(45deg);
+                opacity: 0;
+            }
+        }
+
+        /* Remove grid-overlay: replaced by 3D background */
+
+        .grid-overlay {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 243, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.04) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 25s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes gridMove {
+            from {
+                transform: translateY(0);
+            }
+
+            to {
+                transform: translateY(50px);
+            }
+        }
+
+        /* depth glow */
+        .depth-glow {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 80%, rgba(0, 243, 255, 0.05), transparent 60%);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* ── JARVIS STYLE CURSOR ───────────────────────────────────── */
+        #cypher-cursor {
+            position: fixed;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #00f3ff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 99999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            box-shadow:
+                0 0 10px #00f3ff,
+                0 0 20px rgba(0, 243, 255, 0.5),
+                0 0 40px rgba(0, 243, 255, 0.2);
+        }
+
+        /* hover expand */
+        .cypher-hover {
+            transform: translate(-50%, -50%) scale(1.8) !important;
+            box-shadow:
+                0 0 20px #00f3ff,
+                0 0 40px rgba(0, 243, 255, 0.6) !important;
+        }
+
+        /* Ensure UI is above space background */
+        #main-interface {
+            position: relative;
+            z-index: 10;
+        }
+
+        #sidebar {
+            z-index: 20;
+        }
+
+        #sys-hud {
+            z-index: 25;
+        }
+
+        #preloader {
+            z-index: 9000;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- PRELOADER -->
+    <div id="preloader">
+        <div class="pre-sup">ACADEMIC INTELLIGENCE v3.2</div>
+        <h1 class="pre-title">CYPHER</h1>
+        <div id="boot-log"></div>
+        <button id="initBtn">INITIALIZE SYSTEM</button>
+    </div>
+
+    <!-- SPACE BACKGROUND (Three.js canvas will render inside this) -->
+    <div id="space-bg"></div>
+
+
+
+    <!-- CUSTOM CURSOR -->
+    <div id="cypher-cursor"></div>
+
+    <!-- SYSTEM HUD -->
+    <div id="sys-hud">
+        <span id="sys-hud-badge">IDLE</span>
+        <span id="sys-hud-detail">System monitoring active</span>
+    </div>
+    <div id="stealth-label">■ STEALTH MODE ACTIVE ■</div>
+
+    <!-- SIDEBAR -->
+    <div id="app-layout">
+        <!-- SIDEBAR -->
+        <aside id="sidebar">
+            <div class="sidebar-header"><i class="fas fa-eye"></i>&nbsp; CYPHER</div>
+            <button class="new-chat-btn" onclick="CypherLogic.createNewChat()">
+                <i class="fas fa-plus"></i> NEW SESSION
+            </button>
+            <div id="history-list"></div>
+        </aside>
+
+        <!-- MAIN -->
+        <main id="main-interface">
+            <div id="chat-section">
+                <div id="header-status">
+                    <div class="status-dot"></div>
+                    <span id="status-text">SYSTEM MONITORING</span>
+                </div>
+
+                <!-- CHAT -->
+                <div id="chat-container"></div>
+
+                <!-- INPUT BAR -->
+                <div class="input-bar" id="chat-input-container">
+                    <canvas id="voice-wave"></canvas>
+                    <div id="voice-waveform"></div>
+                    <div style="position:relative; display:flex; align-items:center; justify-content:center;">
+                        <div id="mic-ring" class="mic-ring"></div>
+                        <div class="ctrl-btn" id="btn-mic" onclick="CypherVoice.toggle()" title="Microphone"><i
+                                class="fas fa-microphone"></i></div>
+                    </div>
+                    <div class="ctrl-btn" id="btn-temp" onclick="CypherLogic.toggleTemp()" title="Incognito Mode"><i
+                            class="fas fa-mask"></i></div>
+                    <input type="text" id="user-input" placeholder="Transmit request..." autocomplete="off">
+                    <div class="voice-btns" id="voice-btns" style="display:none;">
+                        <div class="mini-btn" onclick="window.pauseVoice()" title="Pause"><i class="fas fa-pause"></i>
+                        </div>
+                        <div class="mini-btn" onclick="window.resumeVoice()" title="Resume"><i class="fas fa-play"></i>
+                        </div>
+                        <div class="mini-btn" onclick="window.stopVoice()" title="Stop"><i class="fas fa-stop"></i>
+                        </div>
+                    </div>
+                    <div class="ctrl-btn" onclick="CypherLogic.send()" title="Send"><i class="fas fa-paper-plane"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div id="right-panel">
+                <!-- NEURAL ANALYSIS PANEL -->
+                <div id="panel-analysis" class="holo-panel panel-card">
+                    <div class="panel-title"><i class="fas fa-brain"></i> Neural Analysis</div>
+                    <div class="panel-content"
+                        style="margin-top:10px; font-size: 14px; padding: 5px 0; font-weight: 500;">Awaiting command
+                    </div>
+                </div>
+
+                <!-- SYSTEM MEMORY PANEL -->
+                <div id="panel-memory" class="holo-panel panel-card">
+                    <div class="panel-title"><i class="fas fa-database"></i> System Memory</div>
+                    <div class="panel-content"
+                        style="margin-top:10px; font-size: 14px; padding: 5px 0; font-weight: 500;">Memory stable</div>
+                </div>
+
+                <!-- VOICE SYNTHESIS PANEL -->
+                <div id="panel-voice" class="holo-panel panel-card">
+                    <div class="panel-title"><i class="fas fa-microphone"></i> Voice Synthesis</div>
+                    <div class="panel-content"
+                        style="margin-top:10px; font-size: 14px; padding: 5px 0; font-weight: 500;">Voice idle</div>
+                    <div class="panel-row"
+                        style="margin-top: 15px; border-top: 1px solid rgba(0,243,255,0.1); padding-top: 8px;">
+                        <span>CONFIDENCE</span> <span class="panel-val" id="val-conf">97.5%</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /* ════════════════════════════════════════════════════════════
+           CYPHER AI — Definitive Frontend  (single file, no duplicates)
+           ════════════════════════════════════════════════════════════ */
+
+
+
+        let UIState = {
+            mode: "idle"
+        };
+
+        // ── GLOBAL STATE ─────────────────────────────────────────────
+        const CYPHER = { mode: 'IDLE', emotion: 'neutral', speaking: false, currentThread: null, isTemp: false, threads: [] };
+
+        const EmotionColors = { neutral: '#00f3ff', calm: '#3b82f6', excited: '#06b6d4', angry: '#ef4444', sad: '#a855f7', alert: '#ef4444', positive: '#4ade80', curious: '#facc15', aggressive: '#ef4444' };
+        const ModeLabels = { IDLE: 'SYSTEM MONITORING', THINKING: 'PROCESSING DATA…', SPEAKING: 'AUDIO TRANSMISSION', ALERT: 'ANOMALY DETECTED', LISTENING: 'VOICE CAPTURE ACTIVE' };
+
+        // ── STATE MANAGER ─────────────────────────────────────────────
+        // Reactor color per mode (overrides emotion tint while mode is active)
+        const MODE_COLORS = {
+            IDLE: '#00f3ff', // dim cyan
+            THINKING: '#facc15', // yellow — processing
+            SPEAKING: '#00ffcc', // bright teal — transmitting
+            LISTENING: '#4ade80', // soft green — receiving
+            ALERT: '#ef4444', // red
+            TEMP: '#a855f7'  // purple — stealth
+        };
+
+        function updateCypherState(patch) {
+            Object.assign(UIState, patch);
+        }
+
+        function setMode(mode) {
+            if (!UIState) return;
+            UIState.mode = mode.toLowerCase();
+            CYPHER.mode = mode;
+            const st = document.getElementById('status-text');
+            if (st) st.innerText = ModeLabels[mode] || 'ONLINE';
+
+            // Drive accent color from mode
+            if (!CYPHER.isTemp && MODE_COLORS[mode]) {
+                document.documentElement.style.setProperty('--c', MODE_COLORS[mode]);
+            }
+            // Sync cursor glow with AI state
+            if (window.setCursorState) window.setCursorState(mode.toLowerCase());
+            updateSystemState(mode);
+        }
+
+        function applyEmotionColor(emotion) {
+            CYPHER.emotion = emotion;
+            const col = EmotionColors[emotion] || EmotionColors.neutral;
+            document.documentElement.style.setProperty('--c', col);
+        }
+
+        // ── SYSTEM STATE → NEURAL PANELS (JARVIS HUD DYNAMIC) ──────────────────
+        let cypherState = {
+            mode: "idle",        // idle | thinking | speaking | listening | temp
+            emotion: "neutral",  // neutral | confident | aggressive | calm | error
+            confidence: 97.5,
+            lastAction: "System Ready"
+        };
+
+        function updatePanels() {
+            const analysis = document.getElementById("panel-analysis");
+            const memPanel = document.getElementById("panel-memory");
+            const voice = document.getElementById("panel-voice");
+
+            if (!analysis || !memPanel || !voice) return;
+
+            // ── NEURAL ANALYSIS PANEL (shows detected intent + state) ──
+            let aText = "Ready — ask anything";
+            if (cypherState.mode === "thinking") {
+                const mood = (window._lastMood || "general_query");
+                const intentMap = {
+                    concept_query: "Concept Query detected",
+                    problem_query: "Problem-Solving mode",
+                    comparison_query: "Comparison Analysis",
+                    debug_query: "Debug & Fix mode",
+                    summary_query: "Summarization mode",
+                    general_query: "Processing query..."
+                };
+                aText = intentMap[mood] || "Analyzing question...";
+            } else if (cypherState.mode === "listening") {
+                aText = "Listening — speak now";
+            } else if (cypherState.mode === "speaking") {
+                aText = "Delivering explanation";
+            }
+            const ac = analysis.querySelector(".panel-content");
+            if (ac) ac.innerText = aText;
+
+            // ── SYSTEM MEMORY PANEL (session context info) ─────────────
+            let mText = "Session active";
+            if (CYPHER.isTemp) mText = "Temp mode — no storage";
+            else if (cypherState.mode === "thinking") mText = "Loading context...";
+            else if (CYPHER.currentThread) mText = "Thread loaded";
+            const mc = memPanel.querySelector(".panel-content");
+            if (mc) mc.innerText = mText;
+
+            // ── VOICE SYNTHESIS PANEL ───────────────────────────────────
+            let vText = "Voice idle";
+            if (cypherState.mode === "speaking") vText = "Speaking — CYPHER active";
+            else if (cypherState.mode === "listening") vText = "Mic capturing...";
+            const vc = voice.querySelector(".panel-content");
+            if (vc) vc.innerText = vText;
+
+            // CONFIDENCE
+            const conf = document.getElementById("val-conf");
+            if (conf) conf.innerText = cypherState.confidence + "%";
+        }
+
+        function applyPanelTheme() {
+            const panels = document.querySelectorAll(".holo-panel");
+            let color = "#00f3ff";
+
+            switch (cypherState.emotion) {
+                case "aggressive": color = "#ff3b3b"; break;
+                case "confident": color = "#4ade80"; break;
+                case "error": color = "#ef4444"; break;
+                case "calm": color = "#60a5fa"; break;
+                default: color = "#00f3ff"; break;
+            }
+
+            panels.forEach(p => {
+                p.style.borderColor = color;
+                p.style.boxShadow = `0 0 20px ${color}33`;
+                p.style.color = color;
+            });
+        }
+
+        function setPanelModeClass() {
+            const panels = document.querySelectorAll(".holo-panel");
+            panels.forEach(p => {
+                p.classList.remove("thinking", "speaking", "listening");
+                if (cypherState.mode === "thinking") p.classList.add("thinking");
+                if (cypherState.mode === "speaking") p.classList.add("speaking");
+                if (cypherState.mode === "listening") p.classList.add("listening");
+            });
+        }
+
+        function refreshHUD() {
+            updatePanels();
+            applyPanelTheme();
+            setPanelModeClass();
+        }
+
+        function updateSystemState(state, detail) {
+            if (state === 'LISTENING') {
+                cypherState.mode = "listening";
+                cypherState.lastAction = "Listening to user";
+            } else if (state === 'THINKING') {
+                cypherState.mode = "thinking";
+                cypherState.lastAction = "Processing query";
+            } else if (state === 'SPEAKING') {
+                cypherState.mode = "speaking";
+                cypherState.lastAction = "Responding";
+            } else if (state === 'IDLE') {
+                cypherState.mode = CYPHER.isTemp ? "temp" : "idle";
+                cypherState.lastAction = "Idle";
+            }
+            refreshHUD();
+        }
+
+        // ── EMOTION DETECTION ─────────────────────────────────────────
+        function detectEmotion(text) {
+            const t = String(text).toLowerCase();
+            if (t.includes("error") || t.includes("failed")) return "error";
+            if (t.includes("danger") || t.includes("warning")) return "aggressive";
+            if (t.includes("success") || t.includes("done")) return "confident";
+            if (t.includes("hello") || t.includes("hi") || t.includes("welcome")) return "calm";
+            return "neutral";
+        }
+
+        // ── AUDIO CONTEXT (single, global) ───────────────────────────
+        let audioCtx = null;
+        let analyser = null;
+        let analyserData = null;
+
+        function initAudioContext() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            analyserData = new Uint8Array(analyser.frequencyBinCount);
+
+            // Global UI hover/click sounds
+            document.body.addEventListener('mouseover', (e) => {
+                if (e.target.closest('.ctrl-btn') || e.target.closest('.history-item') || e.target.closest('.new-chat-btn') || e.target.closest('.icon-btn')) {
+                    playHoverSound();
+                }
+            });
+            document.body.addEventListener('click', (e) => {
+                if (e.target.closest('.ctrl-btn') || e.target.closest('.history-item') || e.target.closest('.new-chat-btn') || e.target.closest('.icon-btn')) {
+                    playUiTick();
+                }
+            });
+        }
+        document.addEventListener('click', initAudioContext, { once: true });
+
+        function playHoverSound() {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            try {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.frequency.setValueAtTime(800, audioCtx.currentTime);
+                o.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+                g.gain.setValueAtTime(0.015, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + 0.05);
+            } catch (e) { }
+        }
+
+        function playUiTick() {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            try {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'square';
+                o.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.01, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + 0.02);
+            } catch (e) { }
+        }
+
+        function playBootSound() {
+            if (!audioCtx) return;
+            try {
+                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                o.connect(g); g.connect(audioCtx.destination);
+                o.frequency.setValueAtTime(220, audioCtx.currentTime);
+                o.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + .75);
+                g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + .85);
+                o.start(); o.stop(audioCtx.currentTime + .85);
+            } catch (e) { }
+        }
+
+
+
+        // ── VOICE VISUALIZER (secondary canvas removed — input waveform used instead) ──
+
+        // ── TEXT CLEANERS ─────────────────────────────────────────────
+        function cleanText(t) {
+            return t.replace(/```[\s\S]*?```/g, ' code block ')
+                .replace(/[*_#`~\[\]\(\)]/g, '')
+                .replace(/\n/g, '. ')
+                .replace(/\s+/g, ' ').trim();
+        }
+        function renderMd(t) {
+            return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/_(.*?)_/g, '<em>$1</em>')
+                .replace(/^#{1,3}\s(.+)/gm, '<strong>$1</strong>')
+                .replace(/•/g, '<br>• ').replace(/\n/g, '<br>');
+        }
+        function escHtml(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'); }
+
+        // ── AUDIO ENGINE ──────────────────────────────────────────────
+
+
+        // ── LIVE MIC WAVEFORM (input bar only) ────────────────────────
+        let micAnalyser, micDataArray, _micAnimActive = false;
+
+        function initMicWaveform(stream) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            const ctx = new AC();
+            const source = ctx.createMediaStreamSource(stream);
+            micAnalyser = ctx.createAnalyser();
+            micAnalyser.fftSize = 64;
+            source.connect(micAnalyser);
+            const bufLen = micAnalyser.frequencyBinCount;
+            micDataArray = new Uint8Array(bufLen);
+
+            const container = document.getElementById('voice-waveform');
+            if (!container) return;
+            container.innerHTML = '';
+            for (let i = 0; i < bufLen; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'wave-bar';
+                container.appendChild(bar);
+            }
+            _micAnimActive = true;
+            animateMicWaveform();
+        }
+
+        function animateMicWaveform() {
+            if (!_micAnimActive || !micAnalyser) return;
+            micAnalyser.getByteFrequencyData(micDataArray);
+            document.querySelectorAll('.wave-bar').forEach((bar, i) => {
+                const v = micDataArray[i] / 255;
+                bar.style.height = (4 + v * 28) + 'px';
+            });
+            requestAnimationFrame(animateMicWaveform);
+        }
+
+        // ── CYPHER VOICE (mic toggle + Speech Recognition — GOD MODE) ───────
+        const CypherVoice = (() => {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) return { toggle() { alert('SpeechRecognition not supported.'); }, start() { }, stop() { } };
+
+            const rec = new SR();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+
+            let active = false;
+            let silenceTimer = null;
+            let activeStream = null;
+
+            rec.onstart = () => {
+                active = true;
+                setMode('LISTENING');
+                cypherState.mode = 'listening';
+                cypherState.lastAction = 'Listening to user';
+                refreshHUD();
+
+                const ring = document.getElementById('mic-ring');
+                if (ring) ring.style.display = 'block';
+                const btn = document.getElementById('btn-mic');
+                if (btn) btn.classList.add('mic-active');
+                const wv = document.getElementById('voice-waveform');
+                if (wv) wv.style.display = 'flex';
+
+                // Get mic stream for both waveform systems
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                    activeStream = stream;
+                    initMicWaveform(stream);       // div bar waveform
+                    startVoiceWaveCanvas(stream);  // canvas smooth wave
+                }).catch(() => { });
+            };
+
+            rec.onresult = (event) => {
+                clearTimeout(silenceTimer);
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                const inp = document.getElementById('user-input');
+                if (inp) {
+                    inp.value = transcript;
+                    inp.classList.add('typing-active');
+                    clearTimeout(window._typingTimer);
+                    window._typingTimer = setTimeout(() => inp.classList.remove('typing-active'), 500);
+                }
+                // Auto-send after 2.5s silence
+                silenceTimer = setTimeout(() => {
+                    if (inp && inp.value.trim()) {
+                        this.stop();
+                    }
+                }, 2500);
+            };
+
+            rec.onend = () => {
+                if (active) {
+                    // Restart to keep listening seamlessly
+                    try { rec.start(); } catch (e) { }
+                    return;
+                }
+                _resetMicUI();
+            };
+
+            rec.onerror = (e) => {
+                console.warn('[Voice]', e.error);
+                active = false;
+                _resetMicUI();
+            };
+
+            function _resetMicUI() {
+                _micAnimActive = false;
+                stopVoiceWaveCanvas();
+                setMode('IDLE');
+                cypherState.mode = 'idle';
+                refreshHUD();
+
+                const ring = document.getElementById('mic-ring');
+                if (ring) ring.style.display = 'none';
+                const btn = document.getElementById('btn-mic');
+                if (btn) btn.classList.remove('mic-active');
+                const wv = document.getElementById('voice-waveform');
+                if (wv) { wv.style.display = 'none'; wv.innerHTML = ''; }
+
+                if (activeStream) {
+                    activeStream.getTracks().forEach(t => t.stop());
+                    activeStream = null;
+                }
+
+                // Auto-send if transcript available
+                const inp = document.getElementById('user-input');
+                if (inp && inp.value.trim()) setTimeout(() => CypherLogic.send(), 100);
+            }
+
+            return {
+                toggle() { active ? this.stop() : this.start(); },
+                start() { try { rec.start(); } catch (e) { } },
+                stop() {
+                    clearTimeout(silenceTimer);
+                    active = false;
+                    try { rec.stop(); } catch (e) { }
+                }
+            };
+        })();
+
+        // ── AUDIO SYSTEM (REAL-TIME NATIVE TTS FIX) ────────────────────
+        let currentUtterance;
+
+        window.pauseVoice = () => window.speechSynthesis && window.speechSynthesis.pause();
+        window.resumeVoice = () => window.speechSynthesis && window.speechSynthesis.resume();
+        window.stopVoice = () => {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            setMode('IDLE');
+            const vb = document.getElementById('voice-btns');
+            if (vb) vb.style.display = 'none';
+        };
+
+
+
+        // ── VOICE WAVE CANVAS RENDERER (input bar) ────────────────────────
+        let _vwCtx = null, _vwActive = false;
+
+        function startVoiceWaveCanvas(stream) {
+            const canvas = document.getElementById('voice-wave');
+            if (!canvas) return;
+            canvas.width = canvas.offsetWidth || 400;
+            canvas.height = 28;
+            _vwCtx = canvas.getContext('2d');
+            canvas.classList.add('wave-visible');
+
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            const ctx2 = new AC();
+            const src = ctx2.createMediaStreamSource(stream);
+            const analyserW = ctx2.createAnalyser();
+            analyserW.fftSize = 256;
+            src.connect(analyserW);
+            const dataW = new Uint8Array(analyserW.frequencyBinCount);
+
+            _vwActive = true;
+            function drawVoiceWave() {
+                if (!_vwActive) return;
+                requestAnimationFrame(drawVoiceWave);
+                analyserW.getByteFrequencyData(dataW);
+                _vwCtx.clearRect(0, 0, canvas.width, canvas.height);
+                const barW = 2, gap = 1;
+                const total = Math.floor(canvas.width / (barW + gap));
+                for (let i = 0; i < total; i++) {
+                    const idx = Math.floor(i * dataW.length / total);
+                    const h = Math.max(2, (dataW[idx] / 255) * 26);
+                    const alpha = 0.5 + (dataW[idx] / 255) * 0.5;
+                    _vwCtx.fillStyle = `rgba(0,243,255,${alpha})`;
+                    _vwCtx.shadowBlur = 6;
+                    _vwCtx.shadowColor = '#00f3ff';
+                    _vwCtx.fillRect(i * (barW + gap), 28 - h, barW, h);
+                }
+            }
+            drawVoiceWave();
+        }
+
+        function stopVoiceWaveCanvas() {
+            _vwActive = false;
+            const canvas = document.getElementById('voice-wave');
+            if (canvas) {
+                canvas.classList.remove('wave-visible');
+                const ctx = canvas.getContext('2d');
+                if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis) return;
+
+            window.speechSynthesis.cancel();
+
+            // Clean text for TTS: Remove code blocks, HTML, Symbols, URLs
+            text = text.replace(/```[\s\S]*?```/g, ' ')
+                .replace(/<[^>]+>/g, '')
+                .replace(/[#_*~`\[\]()>-]/g, ' ')
+                .replace(/(https?:\/\/[^\s]+)/g, ' link ')
+                .trim();
+
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 1.15;
+            utter.pitch = 0.85;
+            utter.volume = 1;
+
+            utter.onstart = () => {
+                setMode('SPEAKING');
+                cypherState.mode = 'speaking';
+                refreshHUD();
+                const vb = document.getElementById('voice-btns');
+                if (vb) vb.style.display = 'flex';
+            };
+
+            utter.onend = () => {
+                setMode('IDLE');
+                cypherState.mode = 'idle';
+                refreshHUD();
+                const vb = document.getElementById('voice-btns');
+                if (vb) vb.style.display = 'none';
+            };
+
+            utter.onerror = () => {
+                setMode('IDLE');
+            };
+
+            currentUtterance = utter;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function animateVisualizer() {
+            if (!analyser || !analyserData) {
+                requestAnimationFrame(animateVisualizer);
+                return;
+            }
+            analyser.getByteFrequencyData(analyserData);
+            const sum = analyserData.reduce((a, b) => a + b, 0);
+            const avg = analyserData.length ? sum / analyserData.length : 0;
+
+            const valCpu = document.getElementById("v-sys");
+            if (valCpu) valCpu.style.width = Math.floor(avg * 1.5) + "%";
+            const valCpuTxt = document.getElementById("v-sys-pct");
+            if (valCpuTxt) valCpuTxt.innerText = Math.floor(avg * 1.5) + "%";
+
+            // Also drive energy bar
+            const vEnergy = document.getElementById("v-energy");
+            if (vEnergy) vEnergy.style.width = Math.floor((sum / (analyserData.length * 255)) * 300) + "%";
+            const vEnergyTxt = document.getElementById("v-energy-pct");
+            if (vEnergyTxt) vEnergyTxt.innerText = Math.floor((sum / (analyserData.length * 255)) * 300) + "%";
+
+            requestAnimationFrame(animateVisualizer);
+        }
+
+        // ── SYSTEM VITALS UPDATER (driven inside RAF loop) ────────────
+        const Vitals = {
+            _vLoad: null, _vConf: null,
+            _lPct: null, _cPct: null,
+            _confVal: 85, _loadVal: 0, _sysStep: 0,
+
+            init() {
+                this._vLoad = document.getElementById('v-load');
+                this._vConf = document.getElementById('v-conf');
+                this._lPct = document.getElementById('v-load-pct');
+                this._cPct = document.getElementById('v-conf-pct');
+                animateVisualizer(); // Phase 6 start
+            },
+
+            update() {
+                if (!this._vLoad) return;
+                this._sysStep++;
+
+                // Neural Load — pulses when thinking
+                if (CYPHER.mode === 'THINKING') {
+                    this._loadVal = 40 + Math.random() * 50;
+                } else if (CYPHER.mode === 'SPEAKING') {
+                    this._loadVal = 30 + Math.random() * 30;
+                } else {
+                    this._loadVal = Math.max(0, this._loadVal - 4);
+                }
+                this._vLoad.style.width = this._loadVal + '%';
+                if (this._lPct) this._lPct.innerText = Math.round(this._loadVal) + '%';
+
+                // Confidence — shown after responses, mock 85–99%
+                if (CYPHER.mode === 'SPEAKING' && this._confVal < 85) this._confVal = 85 + Math.random() * 14;
+                if (CYPHER.mode === 'IDLE') this._confVal = Math.max(0, this._confVal - 1);
+                this._vConf.style.width = this._confVal + '%';
+                if (this._cPct) this._cPct.innerText = this._confVal > 0 ? Math.round(this._confVal) + '%' : '—';
+            }
+        };
+
+
+        // ── SPACE BACKGROUND PARALLAX ─────────────────────────────────
+        document.addEventListener("mousemove", (e) => {
+            const moveX = (e.clientX / window.innerWidth - 0.5) * 20;
+            const moveY = (e.clientY / window.innerHeight - 0.5) * 20;
+            const s1 = document.querySelector(".stars");
+            const s2 = document.querySelector(".stars2");
+            const s3 = document.querySelector(".stars3");
+            if (s1) s1.style.transform = `translate(${moveX}px, ${moveY}px) translateY(var(--drift, 0px))`;
+            if (s2) s2.style.transform = `translate(${moveX * 1.5}px, ${moveY * 1.5}px) translateY(var(--drift2, 0px))`;
+            if (s3) s3.style.transform = `translate(${moveX * 2}px, ${moveY * 2}px) translateY(var(--drift3, 0px))`;
+        });
+
+
+
+
+
+
+
+
+
+
+        const API = {
+            async threads() { return (await fetch('/threads')).json(); },
+            async history(id) { return (await fetch(`/threads/${id}`)).json(); },
+            async delete(id) { await fetch(`/threads/${id}`, { method: 'DELETE' }); },
+            async rename(id, title) { await fetch(`/threads/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }); }
+        };
+
+        // ── CHAT LOGIC ────────────────────────────────────────────────
+        const CypherLogic = {
+            toggleTemp() {
+                CYPHER.isTemp = !CYPHER.isTemp;
+                this.toggleTempVisuals();
+            },
+
+            async init() {
+                CYPHER.threads = await API.threads();
+                this._sidebar();
+                if (CYPHER.threads.length) await this.loadThread(CYPHER.threads[0]._id);
+                else this._bubble('assistant', 'CYPHER ready. Ask me anything — concepts, problems, code, or explanations. What are we studying today?');
+                this._dashLoop();
+            },
+
+            toggleTempVisuals() {
+                const btn = document.getElementById('temp-btn');
+                const label = document.getElementById('stealth-label');
+
+                if (CYPHER.isTemp) {
+                    CYPHER.currentThread = null;
+                    if (btn) btn.classList.add('temp-active');
+                    document.body.classList.add('temp-mode');
+                    if (label) label.classList.add('on');
+
+                    // Sawtooth bass + glitch click for activation
+                    if (audioCtx) {
+                        try {
+                            const o1 = audioCtx.createOscillator();
+                            const g1 = audioCtx.createGain();
+                            o1.type = 'sawtooth'; o1.frequency.value = 80;
+                            g1.gain.setValueAtTime(0.18, audioCtx.currentTime);
+                            g1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+                            o1.connect(g1); g1.connect(audioCtx.destination);
+                            o1.start(); o1.stop(audioCtx.currentTime + 0.35);
+
+                            const o2 = audioCtx.createOscillator();
+                            const g2 = audioCtx.createGain();
+                            o2.type = 'square'; o2.frequency.value = 440;
+                            g2.gain.setValueAtTime(0.08, audioCtx.currentTime + 0.05);
+                            g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                            o2.connect(g2); g2.connect(audioCtx.destination);
+                            o2.start(audioCtx.currentTime + 0.05); o2.stop(audioCtx.currentTime + 0.12);
+                        } catch (e) { }
+                    }
+
+
+                    document.documentElement.style.setProperty('--c', '#a855f7');
+                    updateSystemState('incognito_on');
+
+                } else {
+                    if (btn) btn.classList.remove('temp-active');
+                    document.body.classList.remove('temp-mode');
+                    if (label) label.classList.remove('on');
+
+                    if (audioCtx) { try { playUiTick(); } catch (e) { } }
+
+
+                    document.documentElement.style.setProperty('--c', '#00f3ff');
+                    CYPHER.emotion = 'neutral';
+                    updateSystemState('incognito_off');
+                }
+            },
+
+            createNewChat() {
+                CYPHER.currentThread = null;
+                document.getElementById('chat-container').innerHTML = '';
+                this._sidebar(); playUiTick();
+                this._bubble('assistant', 'Blank channel active. Your move.');
+            },
+
+            async loadThread(id) {
+                CYPHER.currentThread = id; this._sidebar();
+                const msgs = await API.history(id);
+                const c = document.getElementById('chat-container');
+                c.innerHTML = ''; msgs.forEach(m => this._bubble(m.role, m.content));
+                const pm = document.getElementById('pm-thread');
+                if (pm) pm.innerText = id.slice(-6).toUpperCase();
+            },
+
+            async rename(e, id) {
+                e.stopPropagation();
+                const t = CYPHER.threads.find(x => x._id === id);
+                const nv = prompt('Rename:', t?.title || ''); if (!nv?.trim()) return;
+                await API.rename(id, nv.trim()); CYPHER.threads = await API.threads(); this._sidebar();
+            },
+
+            async delete(e, id) {
+                e.stopPropagation();
+                if (!confirm('Purge this record?')) return;
+                await API.delete(id); CYPHER.threads = await API.threads();
+                if (CYPHER.currentThread === id) {
+                    if (CYPHER.threads.length) await this.loadThread(CYPHER.threads[0]._id);
+                    else this.createNewChat();
+                } else this._sidebar();
+            },
+
+            async send() {
+                const input = document.getElementById('user-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                input.value = '';
+
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
+                if (window.stopVoice) window.stopVoice();
+
+                playUiTick();
+                setMode('THINKING');
+
+                // ── CLIENT-SIDE INTENT DETECTION (feeds HUD panel) ────────
+                const tl = text.toLowerCase();
+                if (/what is|what are|explain|define|describe|how does|why does|tell me about/.test(tl))
+                    window._lastMood = 'concept_query';
+                else if (/solve|calculate|find|compute|evaluate|prove|derive/.test(tl))
+                    window._lastMood = 'problem_query';
+                else if (/difference|compare|versus|\bvs\b|which is better|contrast/.test(tl))
+                    window._lastMood = 'comparison_query';
+                else if (/error|not working|stuck|failed|bug|crash|fix|wrong/.test(tl))
+                    window._lastMood = 'debug_query';
+                else if (/summarize|summary|tldr|short|brief/.test(tl))
+                    window._lastMood = 'summary_query';
+                else
+                    window._lastMood = 'general_query';
+
+                updateSystemState('THINKING', text.slice(0, 40));
+
+                this._bubble('user', text);
+
+                const wasTemp = CYPHER.isTemp;
+
+                try {
+                    // Phase 2 Fix Logic
+                    const res = await fetch('/chat_stream', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: text,
+                            thread_id: CYPHER.currentThread || null,
+                            is_temp: wasTemp,
+                            complexity: 'high'
+                        })
+                    });
+
+                    if (!res.ok) throw new Error("API error");
+
+                    if (!CYPHER.currentThread && !wasTemp) {
+                        setTimeout(async () => { CYPHER.threads = await API.threads(); if (CYPHER.threads.length) CYPHER.currentThread = CYPHER.threads[0]._id; this._sidebar(); }, 1800);
+                    }
+
+                    const reader = res.body.getReader(); const dec = new TextDecoder();
+                    const bubble = this._emptyBubble(); const span = bubble.querySelector('.content');
+                    let streamEmotion = 'neutral';
+                    let full = '';
+
+                    // No artificial delay — stream at true LLM API speed
+                    while (true) {
+                        const { done, value } = await reader.read(); if (done) break;
+                        const chunk = dec.decode(value);
+                        let textChunk = chunk;
+
+                        if (chunk.includes('__EMOTION__')) {
+                            const m = chunk.match(/__EMOTION__([a-z]+)__/);
+                            if (m) { streamEmotion = m[1]; applyEmotionColor(streamEmotion); }
+                            textChunk = chunk.replace(/__EMOTION__[a-z]+__/, '');
+                        }
+
+                        full += textChunk;
+                        span.innerHTML = renderMd(full);
+                        const cc = document.getElementById('chat-container');
+                        cc.scrollTop = cc.scrollHeight;
+                    }
+
+                    // Supplement with local emotion detection on full response
+                    cypherState.emotion = detectEmotion(full);
+                    if (cypherState.emotion !== 'neutral' && streamEmotion === 'neutral') {
+                        applyEmotionColor(cypherState.emotion);
+                    }
+
+                    cypherState.mode = "speaking";
+                    cypherState.lastAction = "Responding";
+                    refreshHUD();
+
+
+
+                    // Phase 4: Full block TTS playback at the end
+                    speak(full);
+
+                } catch (err) {
+                    console.error('[CYPHER]', err);
+                    this._bubble('assistant', '⚠️ System Error');
+                    setMode('ALERT');
+                } finally {
+                    input.focus();
+                }
+            },
+
+            _sidebar() {
+                const list = document.getElementById('history-list'); list.innerHTML = '';
+                CYPHER.threads.forEach(t => {
+                    const el = document.createElement('div');
+                    el.className = 'history-item' + (t._id === CYPHER.currentThread ? ' active' : '');
+                    el.onclick = () => this.loadThread(t._id);
+                    el.innerHTML = `<span class="h-title"><i class="fas fa-terminal" style="font-size:.66rem;margin-right:5px;opacity:.45"></i>${t.title}</span>
+                <span class="h-acts">
+                    <i class="fas fa-pencil-alt h-icon edit" onclick="CypherLogic.rename(event,'${t._id}')"></i>
+                    <i class="fas fa-trash-alt h-icon trash" onclick="CypherLogic.delete(event,'${t._id}')"></i>
+                </span>`;
+                    list.appendChild(el);
+                });
+            },
+
+            _bubble(role, content) {
+                const c = document.getElementById('chat-container');
+                const d = document.createElement('div');
+                d.className = `message ${role}`;
+                if (role === 'assistant' && c.children.length === 0) {
+                    d.classList.add('center-greet');
+                }
+                d.innerHTML = role === 'assistant'
+                    ? `<span class="msg-lbl">CYPHER</span><span class="content">${renderMd(content)}</span>`
+                    : `<span class="msg-lbl">YOU</span><span class="content">${escHtml(content)}</span>`;
+                c.appendChild(d); c.scrollTop = c.scrollHeight;
+            },
+
+            _emptyBubble() {
+                const c = document.getElementById('chat-container');
+                const d = document.createElement('div'); d.className = 'message assistant';
+                d.innerHTML = '<span class="msg-lbl">CYPHER</span><span class="content">▌</span>';
+                c.appendChild(d); c.scrollTop = c.scrollHeight; return d;
+            },
+
+            _dashLoop() {
+                // minor panel clock updates
+                setInterval(() => {
+                    const ai = document.getElementById('pa-status');
+                    if (ai && CYPHER.mode === 'IDLE') ai.innerText = 'IDLE';
+                }, 2000);
+            }
+        };
+
+        // ── BOOT ──────────────────────────────────────────────────────
+        let _booted = false;
+        async function runBootSequence() {
+            if (_booted) return; _booted = true;
+            document.getElementById('initBtn').disabled = true;
+            initAudioContext(); setTimeout(playBootSound, 80);
+            const log = document.getElementById('boot-log');
+            for (const m of ['> Neural link established', '> Knowledge grid online', '> Memory banks loaded', '> CYPHER online.']) {
+                log.textContent = m; await new Promise(r => setTimeout(r, 300));
+            }
+            document.getElementById('preloader').classList.add('hidden');
+            await CypherLogic.init();
+            setTimeout(() => {
+                document.getElementById('panel-analysis').classList.add('active');
+                document.getElementById('panel-memory').classList.add('active');
+                document.getElementById('panel-voice').classList.add('active');
+            }, 350);
+            enhancedMainLoop(); // single RAF — Three.js + Vitals + Particles
+        }
+
+        document.getElementById('initBtn').addEventListener('click', runBootSequence, { once: true });
+        document.getElementById('user-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); CypherLogic.send(); }
+        });
+
+        /* ── SYSTEM HUD UPDATER ─────────────────────────────────────── */
+        const HUD_MESSAGES = {
+            IDLE: { badge: 'IDLE', detail: 'System monitoring active' },
+            LISTENING: { badge: 'VOICE', detail: 'Voice capture active' },
+            THINKING: { badge: 'THINKING', detail: 'Processing query…' },
+            SPEAKING: { badge: 'RESPONSE', detail: 'Transmitting response' },
+            ALERT: { badge: 'ALERT', detail: 'Anomaly detected' },
+            incognito_on: { badge: 'INCOGNITO', detail: 'Memory disabled — no history saved' },
+            incognito_off: { badge: 'IDLE', detail: 'Standard mode restored' },
+        };
+        const _origSetMode = setMode;
+        // Patch setMode to also drive the HUD
+        window.setMode = function (mode) {
+            _origSetMode(mode);
+            updateHUD(mode);
+        };
+        const _origUpdateSystemState = updateSystemState;
+        window.updateSystemState = function (state, detail) {
+            _origUpdateSystemState(state, detail);
+            if (HUD_MESSAGES[state]) updateHUD(state);
+        };
+        function updateHUD(key) {
+            const info = HUD_MESSAGES[key] || HUD_MESSAGES.IDLE;
+            const badge = document.getElementById('sys-hud-badge');
+            const detail = document.getElementById('sys-hud-detail');
+            if (badge) badge.innerText = info.badge;
+            if (detail) detail.innerText = info.detail;
+        }
+
+        /* ── MAIN LOOP (vitals only) ────────────────────────────────── */
+        function enhancedMainLoop() {
+            requestAnimationFrame(enhancedMainLoop);
+            if (typeof Vitals !== 'undefined' && Vitals.update) {
+                Vitals.update();
+            }
+        }
+
+        // ── JARVIS CURSOR SYSTEM ──────────────────────────────
+        (() => {
+            const cursor = document.getElementById('cypher-cursor');
+            if (!cursor) return;
+
+            // Tracking
+            document.addEventListener('mousemove', (e) => {
+                cursor.style.left = e.clientX + 'px';
+                cursor.style.top = e.clientY + 'px';
+            }, { passive: true });
+
+            // Hover effect for buttons & interactive elements
+            const hoverElements = document.querySelectorAll("button, .icon-btn, .history-item, input, textarea, .ctrl-btn, .mini-btn, .new-chat-btn, .clickable");
+            hoverElements.forEach(el => {
+                el.addEventListener("mouseenter", () => cursor.classList.add("cypher-hover"));
+                el.addEventListener("mouseleave", () => cursor.classList.remove("cypher-hover"));
+            });
+
+            // AI reactive cursor: called from setMode
+            window.setCursorState = (state) => {
+                const states = {
+                    listening: { color: '#00ff88', shadow: '0 0 10px #00ff88, 0 0 20px rgba(0,255,136,0.5), 0 0 40px rgba(0,255,136,0.2)' },
+                    speaking: { color: '#4ade80', shadow: '0 0 10px #4ade80, 0 0 20px rgba(74,222,128,0.5), 0 0 40px rgba(74,222,128,0.2)' },
+                    thinking: { color: '#facc15', shadow: '0 0 10px #facc15, 0 0 20px rgba(250,204,21,0.5), 0 0 40px rgba(250,204,21,0.2)' },
+                    idle: { color: '#00f3ff', shadow: '0 0 10px #00f3ff, 0 0 20px rgba(0,243,255,0.5), 0 0 40px rgba(0,243,255,0.2)' },
+                };
+                const s = states[state] || states.idle;
+                // Important: Only change color/shadow on the inline style, let class handle the scale
+                cursor.style.borderColor = s.color;
+                cursor.style.boxShadow = s.shadow;
+            };
+        })();
+
+
+        // ── MAIN LOOP (vitals only, Three.js background handled separately) ───────────────────────────────────────────────────────────────────────
+    </script>
+
+    <!-- 3D SPACE BACKGROUND -->
+    <script>
+        (() => {
+            const container = document.getElementById('space-bg');
+            if (!container || typeof THREE === 'undefined') return;
+
+            // Scene
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000510, 0.002);
+
+            // Camera
+            const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
+            camera.position.set(0, 0, 6);
+
+            // Renderer (appended inside #space-bg)
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            renderer.setSize(innerWidth, innerHeight);
+            renderer.setClearColor(0x000510, 1);
+            renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+            container.appendChild(renderer.domElement);
+
+            // ── STARS (2500 deep-space points) ────────────────────────────────────────────────────────────────
+            const starCount = 2500;
+            const starPos = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount * 3; i++) {
+                starPos[i] = (Math.random() - 0.5) * 600;
+            }
+            const starGeo = new THREE.BufferGeometry();
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const starMat = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                transparent: true,
+                opacity: 0.85,
+                sizeAttenuation: true
+            });
+            const stars = new THREE.Points(starGeo, starMat);
+            scene.add(stars);
+
+            // Second star layer: slightly bluish, more distant
+            const starPos2 = new Float32Array(1500 * 3);
+            for (let i = 0; i < 1500 * 3; i++) starPos2[i] = (Math.random() - 0.5) * 1200;
+            const starGeo2 = new THREE.BufferGeometry();
+            starGeo2.setAttribute('position', new THREE.BufferAttribute(starPos2, 3));
+            scene.add(new THREE.Points(starGeo2, new THREE.PointsMaterial({
+                color: 0xaaccff, size: 0.3, transparent: true, opacity: 0.5, sizeAttenuation: true
+            })));
+
+            // ── PLANET / MOON ────────────────────────────────────────────────────────────────────────────
+            const loader = new THREE.TextureLoader();
+            const planetGeo = new THREE.SphereGeometry(1.4, 64, 64);
+            const planetMesh = new THREE.Mesh(planetGeo, new THREE.MeshStandardMaterial({
+                color: 0xccddee,
+                roughness: 0.95,
+                metalness: 0.05
+            }));
+            // Load moon texture if available, fallback to plain material
+            loader.load(
+                'https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg',
+                (tex) => { planetMesh.material.map = tex; planetMesh.material.needsUpdate = true; },
+                undefined,
+                () => { } // fail silently
+            );
+            planetMesh.position.set(3.2, 1.2, -8);
+            scene.add(planetMesh);
+
+            // Planet atmosphere rim glow
+            const glowMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(1.52, 32, 32),
+                new THREE.MeshBasicMaterial({
+                    color: 0x003366,
+                    transparent: true,
+                    opacity: 0.18,
+                    side: THREE.BackSide
+                })
+            );
+            glowMesh.position.copy(planetMesh.position);
+            scene.add(glowMesh);
+
+            // ── LIGHTING ───────────────────────────────────────────────────────────────────────────────────
+            scene.add(new THREE.AmbientLight(0x080c18, 3));
+            const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            sunLight.position.set(8, 6, 4);
+            scene.add(sunLight);
+
+            // ── CURSOR PARALLAX ───────────────────────────────────────────────────────────────────────────
+            let targetX = 0, targetY = 0;
+            document.addEventListener('mousemove', (e) => {
+                targetX = (e.clientX / innerWidth - 0.5) * 0.9;
+                targetY = (e.clientY / innerHeight - 0.5) * 0.9;
+            }, { passive: true });
+
+            // ── ANIMATE ────────────────────────────────────────────────────────────────────────────────────
+            (function animate() {
+                requestAnimationFrame(animate);
+
+                // slow star drift
+                stars.rotation.y += 0.0003;
+                stars.rotation.x += 0.0001;
+
+                // planet slow spin
+                planetMesh.rotation.y += 0.0015;
+
+                // smooth camera parallax
+                camera.position.x += (targetX - camera.position.x) * 0.04;
+                camera.position.y += (-targetY - camera.position.y) * 0.04;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+            })();
+
+            // ── RESIZE ───────────────────────────────────────────────────────────────────────────────────────
+            window.addEventListener('resize', () => {
+                camera.aspect = innerWidth / innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(innerWidth, innerHeight);
+            });
+        })();
+    </script>
+
+</body>
+
+</html>
