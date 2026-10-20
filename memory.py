@@ -3,6 +3,9 @@ import json
 from datetime import datetime
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- MONGO DB SETUP ---
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
@@ -115,3 +118,4 @@ async def delete_thread(thread_id: str):
     await db.chats.delete_one({"_id": ObjectId(thread_id)})
     await db.messages.delete_many({"thread_id": thread_id})
     return True
+
