@@ -1,163 +1,98 @@
-# 💠 Study Bot (CYPHER AI Assistant)
+# CYPHER Study Assistant
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Status-Production_Ready-00f3ff?style=for-the-badge&logo=rocket" alt="Status" />
-  <img src="https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Groq-AI_Inference-f55036?style=for-the-badge&logo=ai" alt="Groq" />
-  <img src="https://img.shields.io/badge/UI-WebGL_Three.js-black?style=for-the-badge&logo=three.js" alt="Three.js" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
-</div>
+CYPHER is a browser-based AI study assistant with a FastAPI backend, Groq-powered responses, MongoDB-backed chat threads, a small JSON profile store, browser voice features, and a Three.js interface.
 
-<br>
+## Current status
 
-<div align="center">
-  <strong>CYPHER is a cinematic, JARVIS-style AI study assistant featuring real-time voice synthesis, threaded memory persistence, and an interactive 3D WebGL interface.</strong>
-  <br><br>
-  <i>Alternative / Internal Title: Song Recommendation System</i>
-</div>
+This is an educational project and local prototype. It is not production-hardened: the API has no user authentication or rate limiting, thread routes are not scoped to an account, and the AI endpoint can incur provider usage. Add identity, authorization, abuse protection, and deployment monitoring before exposing it to untrusted users.
 
----
+## Features
 
-## � System Preview
+- Streaming study responses through FastAPI and LangChain's Groq integration.
+- Thread creation, rename, history, and deletion backed by MongoDB.
+- A local `memory.json` file for the assistant's profile and interaction context.
+- Browser speech recognition and speech synthesis when supported by the browser.
+- A responsive single-page interface with a Three.js background and temporary-chat mode.
 
-> **[UI Screenshot Placeholder]**  
-> *(Insert a high-res screenshot of the glassmorphism UI with the 3D space background here)*
+## Technology
 
-> **[Voice/Interaction Demo Placeholder]**  
-> *(Insert a short GIF or video demonstrating speech recognition and the visual interface responding to voice)*
+- Python 3.12+
+- FastAPI and Uvicorn
+- LangChain Core and `langchain-groq`
+- MongoDB through Motor and PyMongo
+- Vanilla HTML, CSS, JavaScript, and Three.js
 
----
+## Prerequisites
 
-## 🔥 Features Overview
+- Python 3.12 or newer.
+- A local MongoDB instance or a reachable MongoDB deployment.
+- A Groq API key for model access.
 
-### 🎨 Cinematic UI/UX
-- **Immersive 3D Parallax:** A responsive, interactive Three.js deep-space background.
-- **Glassmorphism Design:** Premium frosted-glass panels, neon accents (`#00f3ff`), and dynamic typography.
-- **Reactive System Vitals:** Live simulation of "Neural Load" and "Confidence" metrics that respond to the bot's processing state.
-- **Intelligent Cursor:** A custom JARVIS-inspired magnetic cursor that changes color based on the AI's state (Thinking, Speaking, Listening).
+## Local setup
 
-### 🧠 High-Speed AI Processing
-- **LangGraph & FastAPI:** Robust, asynchronous Python backend ensuring zero-blocking concurrent request handling.
-- **Groq Inference Engine:** Delivers near-instantaneous LLM token streaming for true real-time conversation.
-- **Context-Aware Tutor:** System prompts precisely tuned for academic assistance, concept breakdowns, and problem-solving without sycophantic filler.
-
-### 🗣️ Seamless Voice System
-- **Real-Time Speech-to-Text:** Continuous microphone listening using the native browser `SpeechRecognition` API.
-- **Optimized Text-to-Speech (TTS):** Aggressive markdown and syntax cleaning ensures the browser's `speechSynthesis` engine reads responses naturally and cleanly.
-
-### 💾 Persistent Threaded Memory
-- **Local Storage:** Chats are saved to a local `memory.json` (acting as a lightweight NoSQL document store).
-- **Session Management:** Maintain, rename, and purge multiple ongoing study sessions simultaneously.
-
-### 🕶️ Incognito (Stealth) Mode
-- **Zero-Trace Processing:** Pauses all memory recording for temporary questions.
-- **Visual Shift:** The UI transitions from Cyan (`#00f3ff`) to a tactical Purple (`#a855f7`) to indicate the change in security posture.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend Architecture
-- **Core:** HTML5, CSS3, Vanilla JavaScript (Zero bloated frameworks)
-- **Graphics:** Three.js (WebGL rendering for background)
-
-### Backend Architecture
-- **Framework:** FastAPI (High-performance async Python framework)
-- **Server:** Uvicorn (ASGI web server)
-
-### AI & Data
-- **Orchestration:** LangChain / LangGraph
-- **LLM Provider:** Groq API (Llama-3 model series)
-- **Storage:** File-based JSON (`memory.json`) for threaded persistence
-
----
-
-## 📘 Academic Project Mapping
-
-This repository serves as the official submission for the AI Study Assistant Chatbot requirement. Here is how the system directly satisfies the core criteria:
-
-1. **Chatbot Requirement:** Handles complex, context-aware academic queries using LangGraph state management and high-speed LLM inference.
-2. **Memory System:** Implements persistent, threaded conversations stored asynchronously in `memory.json`, allowing the bot to retain study context over long periods.
-3. **API Backend:** Achieves strict frontend-backend separation using a RESTful Python FastAPI server.
-4. **Real-World Application / Deployment Readiness:** A fully self-contained, production-ready system with proper environment segregation (ignoring `.env`) and aggressive frontend asset optimization.
-
----
-
-## ⚙️ Quick Start Installation
-
-**1. Clone the repository**
 ```bash
 git clone https://github.com/mahale800/study-bot-ai-assistant.git
 cd study-bot-ai-assistant
+python -m venv .venv
 ```
 
-**2. Initialize Virtual Environment**
+Activate the environment:
+
 ```bash
-python -m venv .venv
-# Activate on Windows:
-.venv\Scripts\activate
-# Activate on Mac/Linux:
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# macOS or Linux
 source .venv/bin/activate
 ```
 
-**3. Install Dependencies**
+Install dependencies and configure the environment:
+
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+cp .env.example .env
 ```
 
-**4. Configure Environment**
-Create a `.env` file in the root directory:
-```env
-GROQ_API_KEY="your_groq_api_key_here"
-```
+On Windows, use `Copy-Item .env.example .env` instead of `cp`.
 
----
+Set `GROQ_API_KEY` and, when MongoDB is not local, update `MONGO_URL`. `CORS_ORIGINS` can contain a comma-separated list of trusted browser origins; the default permits the local Uvicorn URLs only.
 
-## 🚀 Usage
+Start the backend:
 
-Start the production-ready FastAPI backend:
 ```bash
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
-Then navigate your browser to the local interface:
-```
-http://127.0.0.1:8000
-```
+Open <http://127.0.0.1:8000> in a browser. The server serves `index.html` at the root route.
 
----
-
-## � Project Structure
+## Project structure
 
 ```text
-study-bot-ai-assistant/
-├── main.py             # FastAPI Server & Routes
-├── agent.py            # LangGraph & Groq LLM Logic
-├── memory.py           # Thread Persistence Logic
-├── index.html          # Cinematic Frontend UI & Three.js Background
-├── requirements.txt    # Python Dependencies
-├── .env                # API Keys (Ignored by Git)
-├── memory.json         # Chat History (Ignored by Git)
-└── README.md           # Project Documentation
+agent.py          Groq and LangChain response logic
+main.py           FastAPI routes and streaming endpoint
+memory.py         MongoDB thread storage and JSON profile context
+index.html        Frontend UI, voice controls, and Three.js scene
+requirements.txt  Python dependencies
+.env.example      Local configuration template
 ```
 
----
+## Data and security notes
 
-## 🔮 Future Scope
+- Keep `.env` and `memory.json` local; never commit provider keys or private database URLs.
+- The default MongoDB URL is `mongodb://localhost:27017`.
+- The API currently has no authentication, authorization, rate limiting, or per-user data isolation.
+- Restrict `CORS_ORIGINS` to known origins when serving the app outside local development.
+- Treat the frontend as untrusted code and review any deployment that exposes the API to the public internet.
 
-- **Vector Database Integration:** Migrating `memory.json` to a proper Vector DB (like Pinecone or Chroma) for semantic RAG operations over user study material (PDFs/Slides).
-- **Multi-Modal Input:** Allowing users to upload images of equations or diagrams for the AI to analyze visually.
-- **Cloud Deployment:** Containerization via Docker and deployment to AWS / Vercel.
+## Validation
 
----
+There is currently no automated test suite. At minimum, parse the Python modules, start MongoDB, launch the API, and exercise chat, thread listing, rename, and deletion flows in a local environment.
 
-## 📝 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
 
----
+## Author
 
-<div align="center">
-  <i>Engineered with precision. Designed for the future.</i>
-</div>
+Yash Mahale
+
