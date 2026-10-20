@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from dotenv import load_dotenv
 
 # --- MEMORY DELEGATION ---
 import memory
@@ -14,16 +15,25 @@ import json
 from agent import get_response, get_response_stream
 
 
+load_dotenv()
 
 app = FastAPI(title="CYPHER AI - Study Assistant")
 
-# CORS Configuration
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://127.0.0.1:8000,http://localhost:8000",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 # --- MODELS ---
@@ -184,3 +194,4 @@ app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
