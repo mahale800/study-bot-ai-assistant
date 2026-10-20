@@ -1844,7 +1844,7 @@
                 .replace(/^#{1,3}\s(.+)/gm, '<strong>$1</strong>')
                 .replace(/•/g, '<br>• ').replace(/\n/g, '<br>');
         }
-        function escHtml(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'); }
+        function escHtml(t) { return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'); }
 
         // ── AUDIO ENGINE ──────────────────────────────────────────────
 
@@ -2390,7 +2390,7 @@
                     const el = document.createElement('div');
                     el.className = 'history-item' + (t._id === CYPHER.currentThread ? ' active' : '');
                     el.onclick = () => this.loadThread(t._id);
-                    el.innerHTML = `<span class="h-title"><i class="fas fa-terminal" style="font-size:.66rem;margin-right:5px;opacity:.45"></i>${t.title}</span>
+                    el.innerHTML = `<span class="h-title"><i class="fas fa-terminal" style="font-size:.66rem;margin-right:5px;opacity:.45"></i>${escHtml(t.title || 'Untitled')}</span>
                 <span class="h-acts">
                     <i class="fas fa-pencil-alt h-icon edit" onclick="CypherLogic.rename(event,'${t._id}')"></i>
                     <i class="fas fa-trash-alt h-icon trash" onclick="CypherLogic.delete(event,'${t._id}')"></i>
@@ -2651,3 +2651,4 @@
 </body>
 
 </html>
+
